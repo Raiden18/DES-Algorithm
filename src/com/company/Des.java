@@ -203,7 +203,7 @@ public class Des {
         //объединяем левую и правую части
         long result = 0;
         result |= left;
-        result = result << 32L;
+        result <<= 32L;
         result |=right;
 
         this.encodeText = reshuffleBits(result, IP_REVERS);
@@ -252,9 +252,8 @@ public class Des {
     private long gatherBits(long left, long right){
         long bits64 = 0;
         bits64 |= left;
-        bits64 = bits64 << 28L;
-        bits64 = bits64 | right;
-        return bits64;
+        bits64 <<= 28L;
+        return bits64 | right;
     }
 
     /**
@@ -273,7 +272,7 @@ public class Des {
         }
 
         if (from>0){
-            sequence = sequence >>> (long)from;
+            sequence >>>= (long)from;
         }
 
         return sequence;
@@ -285,6 +284,7 @@ public class Des {
      * @param key56 - 56-разрядный ключ
      * @return расширенный 64-битный ключ
      */
+    //110111001110111010011001110101101101000011110000110111011100000
     private long extendingKey(long key56) {
         long key64 = 0;
         byte count = 0; //переменная для подсчета количесва бит
@@ -297,22 +297,21 @@ public class Des {
                 count++;
 
             bit8 |= bit;
-            bit8 = (bit8 << 1);
+            bit8 <<= 1;
 
             //Собрали байт:
             if (i % 7 == 0){
                 //Сдвигаем на один бит влево для вставки контрольного бита
-                bit8 = (bit8 >>> 1);
+                bit8 >>>= 1L;
                 if (count % 2 !=0)
                     bit8 = (int)setBit(bit8, 7, 1);
 
                 //Собираем биты вместе
-                key64 = key64 | bit8;
-                if (i!=0){
-                    key64 = key64 << 8L;
-                    bit8 = 0;
-                    count = 0;
-                }
+                key64 <<= 8L;
+                key64 |= bit8;
+
+                bit8 = 0;
+                count = 0;
             }
         }
         return key64;
@@ -362,8 +361,7 @@ public class Des {
      * @return последовательность бит с очищенными битами в указанной позиции
      */
     private long clearBit (long number, int position){
-        number&= ~(1L << position);
-        return number;
+        return number & ~(1L << position);
     }
 
     /**
@@ -374,7 +372,7 @@ public class Des {
      */
     private long shiftBits(long bitsSequence, int offset){
         long tempBits = 0;
-        bitsSequence = bitsSequence << offset;
+        bitsSequence <<= offset;
 
         for (int i= 27+offset; i>27; i--){
             byte bit = (byte) getBit(bitsSequence, i);
