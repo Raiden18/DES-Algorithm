@@ -4,7 +4,9 @@ package com.company;
  *  @author Karpukhin Pavel
  */
 public class Des {
-
+    /**
+     * Матрица Начальной мерестановки
+     */
     private static final byte[]  IP = {
             58, 50, 42, 34, 26, 18, 10, 2,
             60, 52, 44, 36, 28, 20, 12, 4,
@@ -125,6 +127,13 @@ public class Des {
     };
 
     /**
+     * Массив сдвигов для вычисления ключа для расшифрования.
+     */
+    private static final byte[] SHIFT_REV = {
+            0, 1, 2, 2, 2, 2, 2, 2, 1, 2, 2, 2, 2, 2, 2, 1
+    };
+
+    /**
      * Матрица заверщающей обработки ключа
      */
     private static final byte[] H = {
@@ -137,11 +146,23 @@ public class Des {
             44, 49, 39, 56, 34, 53,
             46, 42, 50, 36, 29, 32
     };
-    /** Свойство - кодированная 64разрядная последовательность бит*/
-    private long encodeText;
+
+    /** текст */
+    private long text;
+
+    /** Ключ */
+    private long key;
 
     public Des (long text, long key){
+        this.text = text;
+        this.key = key;
+    }
 
+    /**
+     * Возвращает декодированную алгоритмом DES 64-разрядную последовательность бит
+     * @return деккодированная 64-разрядная последовательнось бит
+     */
+    public long getDecodeMessage(){
         //Начальная перестановка
         long openText = reshuffleBits(text, IP);
 
@@ -149,26 +170,92 @@ public class Des {
         long left = getSequence(openText, 32, 64); //Считаем справо налево
         long right = getSequence(openText, 0, 32); //Считаем справо налево
 
-        //Расширенный ключ
-        long key64 = extendingKey(key);
-
         //Удаление контрольных битов ключа и перемешивание его битов
-        long key56 = reshuffleBits(key64, G);
+        long key56 = reshuffleBits(key, G);
 
         //Разделяем ключ на левую и правую части
         long leftKey28 = getSequence(key56, 28, 56); //Считаем справо налево
         long rightKey28 = getSequence(key56, 0, 28); //Считаем справо налево
 
         byte[] pos = {0, 6, 12, 18, 24, 30, 36, 42, 48}; // Массив для деления E(R)xorK(i)
+        //Реализация функции Фейстеля
+        for (int i = 0; i<16; i++){
 
+            //Сдвигаем левую и правую части ключа
+            rightKey28 = rightShiftBits(rightKey28, SHIFT_REV[i]);
+            leftKey28 = rightShiftBits(leftKey28, SHIFT_REV[i]);
+
+
+
+            //Соединяем части и перемешиваем согласно матрице
+            long key56new = gatherBits(leftKey28, rightKey28, 28);
+
+            long key48 = reshuffleBits(key56new, H); //Ключ подготовлен
+
+            //Вычисляем правую часть
+            long leftExteding = reshuffleBits(left, E);
+
+            //Ксорим правую часть текста и ключ
+            long f = leftExteding ^ key48;
+            /*XOR работает корректно*/
+
+            long temp;
+
+            //реализая функции f
+            long temp_f = 0; // собираем f
+
+            for (int j = 7; j >= 0; j--){
+                temp = getSequence(f, pos[j], pos[j+1]);
+
+                long bi = functionS(temp, j);
+
+                temp_f = temp_f << 4L;
+                temp_f |= bi;
+            }
+
+            f = reshuffleBits(temp_f, P); //Функция f готова!
+
+            long temp_left = left;
+            left = right ^ f;
+            right = temp_left;
+        }
+
+        //объединяем левую и правую части
+        long result = gatherBits(left, right, 32);
+
+        return reshuffleBits(result, IP_REVERS);
+    }
+
+    /**
+     * Возвращает кодированную алгоритмом DES 64-разрядную последовательность бит
+     * @return кодированная 64-разрядная последовательнось бит
+     */
+    public long getEncodeMessage(){
+        //Начальная перестановка
+        long openText = reshuffleBits(text, IP);
+
+
+        //Разделям перемешанную последовательность бит на леву и правую часть
+        long left = getSequence(openText, 32, 64); //Считаем справо налево
+        long right = getSequence(openText, 0, 32); //Считаем справо налево
+
+         //Удаление контрольных битов ключа и перемешивание его битов
+        long key56 = reshuffleBits(key, G);
+
+        //Разделяем ключ на левую и правую части
+        long leftKey28 = getSequence(key56, 28, 56); //Считаем справо налево
+        long rightKey28 = getSequence(key56, 0, 28); //Считаем справо налево
+
+        byte[] pos = {0, 6, 12, 18, 24, 30, 36, 42, 48}; // Массив для деления E(R)xorK(i)
         //Реализация функции Фейстеля
         for (int i = 0; i < 16; i++){
             //Сдвигаем левую и правую части ключа
-            rightKey28 = shiftBits(rightKey28, SHIFT[i]);
-            leftKey28 = shiftBits(leftKey28, SHIFT[i]);
+
+            rightKey28 = leftShiftBits(rightKey28, SHIFT[i]);
+            leftKey28 = leftShiftBits(leftKey28, SHIFT[i]);
 
             //Соединяем части и перемешиваем согласно матрице
-            long key56new = gatherBits(leftKey28, rightKey28);
+            long key56new = gatherBits(leftKey28, rightKey28, 28);
 
             long key48 = reshuffleBits(key56new, H); //Ключ подготовлен
 
@@ -189,7 +276,7 @@ public class Des {
 
                 long bi = functionS(temp, j);
 
-                temp_f = temp_f << 4;
+                temp_f = temp_f << 4L;
                 temp_f |= bi;
             }
 
@@ -201,21 +288,9 @@ public class Des {
         }
 
         //объединяем левую и правую части
-        long result = 0;
-        result |= left;
-        result <<= 32L;
-        result |=right;
+        long result = gatherBits(left, right, 32);
 
-        this.encodeText = reshuffleBits(result, IP_REVERS);
-    }
-
-
-    /**
-     * Возвращает кодированную алгоритмом DES 64-разрядную последовательность бит
-     * @return кодированная 64-разрядная последовательнось бит
-     */
-    public long getEncodeMessage(){
-        return this.encodeText;
+        return reshuffleBits(result, IP_REVERS);
     }
 
     /**
@@ -225,22 +300,22 @@ public class Des {
      * @return возвращает 4-разрядну последовательность бит
      */
     private long functionS(long bitsSequence, int n){
-        byte a = 0;
+        long a = 0;
 
-        byte bit6 = (byte) getBit(bitsSequence, 5);
+        long bit6 = getBit(bitsSequence, 5);
         a |= bit6;
-        a = (byte)(a << 1);
-        byte bit1 = (byte) getBit(bitsSequence, 0);
+        a = a << 1L;
+        long bit1 =  getBit(bitsSequence, 0);
         a |= bit1;
 
-        byte b = 0;
+        long b = 0;
         for (int i = 4; i>=1; i--){
-            byte biti = (byte) getBit(bitsSequence, i);
-            b = (byte)(b << 1);
+            long biti =  getBit(bitsSequence, i);
+            b = (b << 1L);
             b |=biti;
         }
 
-        return S[n][a*16+b];
+        return S[n][(int)a*16+(int)b];
     }
 
     /**
@@ -249,10 +324,10 @@ public class Des {
      * @param right правая часть 56-разрядной последовательности бит
      * @return 56-разрядная последовательность бит
      */
-    private long gatherBits(long left, long right){
+    private long gatherBits(long left, long right, long length){
         long bits64 = 0;
         bits64 |= left;
-        bits64 <<= 28L;
+        bits64 <<= length;
         return bits64 | right;
     }
 
@@ -263,16 +338,16 @@ public class Des {
      * @param to - последний бит позиции
      * @return необходимая последовательность бит
      */
-    private long getSequence(long bitsSequence, int from, int to){
+    private long getSequence(long bitsSequence, long from, long to){
         long sequence =  0;
 
-        for (int i = from; i<to; i++){
-            byte bit = (byte)getBit(bitsSequence, i);
+        for (long i = from; i<to; i++){
+            long bit = getBit(bitsSequence, i);
             sequence = setBit(sequence, i, bit);
         }
 
         if (from>0){
-            sequence >>>= (long)from;
+            sequence >>>= from;
         }
 
         return sequence;
@@ -340,7 +415,8 @@ public class Des {
      * @return бит числа в указанной позиции
      */
     private long getBit (long number, long position){
-        return (number >> position) & 1L;
+        return (number >>> position) & 1L;
+        //return number & (1 << position);
     }
 
     /**
@@ -350,7 +426,10 @@ public class Des {
      * @return число с измененным битом в указанной позиции
      */
     private long setBit (long number, long position, long bit){
-        return number ^ bit << position;
+        if (bit == 1)
+            return number | 1L << position;
+        else
+            return number & ~(1L << position);
     }
 
     /**
@@ -369,7 +448,7 @@ public class Des {
      * @param offset - шаг сдвига
      * @return последовальнсоть битов, циклически сдвинутая влево
      */
-    private long shiftBits(long bitsSequence, int offset){
+    private long leftShiftBits(long bitsSequence, int offset){
         long tempBits = 0;
         bitsSequence <<= offset;
 
@@ -384,14 +463,59 @@ public class Des {
         return bitsSequence | tempBits;
     }
 
+    /**
+     * Циклический сдвиг битов вправо
+     * @param bitsSequence - последовательность бит, в котором происходит сдвиг
+     * @param offset - шаг сдвига
+     * @return циклически сдвинутая вправо последовательность бит
+     */
+    private long rightShiftBits(long bitsSequence, int offset){
+        return (bitsSequence >>> offset) | ((bitsSequence << (64L - offset))>>>36L);
+    }
+
     public static void main(String[] args) {
-        //Спарав считаем бит
-        long opT = 0b1010100111000110100101000010011010010000010100100001010100001100L;
-        long ke = 0b10101010001101101001111111111010101101010100011111101010L;
-        //long opT = 0b0011000010101000010010100000100101100100001010010110001110010101L;
-        //long ke = 0b01010111111000101010110101011111111110010110110001010101L;
-        Des des = new Des(opT, ke);
-        System.out.println(Long.toBinaryString(des.getEncodeMessage()));
+        /*
+        long openText = 0b1010100111000110100101000010011010010000010100100001010100001100L; // - работает!
+        long openText = 0b1010101111100110100101010010011010010000010100101001010100001101L;
+        long openText = 0b1010100111100110100101010010011010010000010100101001010100001111L;
+        long openText = 0b0010100111100110100101010010011010010000010100101001010100001111L;
+        long openText = 0b0010100111100110100101010010111010010000110100101011010100001111L;
+         long openText = 0b0010100111100110100101010010111010010000110100101011010100001110L;
+         long openText = 0b0010100110100110100101010010111010010100110100100011010100001110L;
+         long openText = 0b0010100110100110100101010010111010010100110100100011010100001111L;
+         long openText = 0b0010100110100110100101010010111010010100110100100011010100000101L;
+         long openText = 0b1010100110100110110101010010111010010100100101100011010100000111L;
+        */
+
+
+        long key =  0b0101010110001101010100111111111101010101010101010000111101101010L;
+
+        int correct = 0;
+        int incorrect =0;
+        for (long i = 0; i <99999; i++){
+            long openText = i;
+            Des des = new Des(openText, key);
+            long encodeMessage = des.getEncodeMessage();
+            Des des2 = new Des(encodeMessage, key);
+            long decodeMessage = des2.getDecodeMessage();
+            if (openText == decodeMessage){
+                correct++;
+                System.out.println(Long.toBinaryString(openText));
+            }else
+                incorrect++;
+        }
+        System.out.println("Корректно: " + Integer.toString(correct));
+        System.out.println("Некорректно: " + Integer.toString(incorrect));
+
+    /*  System.out.println("Open text:        " + Long.toBinaryString(openText));
+        System.out.println("Decoding message: " + Long.toBinaryString(decodeMessage));
+        System.out.println("Key: " + Long.toBinaryString(key));
+        System.out.println();
+        System.out.println("Encoding message: " + Long.toBinaryString(encodeMessage));*/
+
+
+
+
 
     }
 }
