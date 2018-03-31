@@ -23,7 +23,7 @@ public class Des {
      */
     private static final byte[] IP_REVERS = {
             40, 8, 48, 16, 56, 24, 64, 32,
-            39, 7, 47, 15, 55, 23, 61, 31,
+            39, 7, 47, 15, 55, 23, 63, 31,
             38, 6, 46, 14, 54, 22, 62, 30,
             37, 5, 45, 13, 53, 21, 61, 29,
             36, 4, 44, 12, 52, 20, 60, 28,
@@ -179,11 +179,11 @@ public class Des {
 
         byte[] pos = {0, 6, 12, 18, 24, 30, 36, 42, 48}; // Массив для деления E(R)xorK(i)
         //Реализация функции Фейстеля
-        for (int i = 0; i<16; i++){
+        for (int i = 15; i>=0; i--){
 
             //Сдвигаем левую и правую части ключа
-            rightKey28 = rightShiftBits(rightKey28, SHIFT_REV[i]);
-            leftKey28 = rightShiftBits(leftKey28, SHIFT_REV[i]);
+            rightKey28 = rightShiftBits(rightKey28, SHIFT_REV[15-i]);
+            leftKey28 = rightShiftBits(leftKey28, SHIFT_REV[15-i]);
 
 
 
@@ -239,7 +239,7 @@ public class Des {
         long left = getSequence(openText, 32, 64); //Считаем справо налево
         long right = getSequence(openText, 0, 32); //Считаем справо налево
 
-         //Удаление контрольных битов ключа и перемешивание его битов
+        //Удаление контрольных битов ключа и перемешивание его битов
         long key56 = reshuffleBits(key, G);
 
         //Разделяем ключ на левую и правую части
@@ -401,8 +401,8 @@ public class Des {
         long newText = 0;
 
         for (int i = 0; i < table.length; i++) {
-           long bit = getBit(bitsSequence, table[i] - 1);
-           newText = setBit(newText, i, bit);
+            long bit = getBit(bitsSequence, table[i] - 1);
+            newText = setBit(newText, i, bit);
         }
 
         return newText;
@@ -416,7 +416,6 @@ public class Des {
      */
     private long getBit (long number, long position){
         return (number >>> position) & 1L;
-        //return number & (1 << position);
     }
 
     /**
@@ -474,25 +473,12 @@ public class Des {
     }
 
     public static void main(String[] args) {
-        /*
-        long openText = 0b1010100111000110100101000010011010010000010100100001010100001100L; // - работает!
-        long openText = 0b1010101111100110100101010010011010010000010100101001010100001101L;
-        long openText = 0b1010100111100110100101010010011010010000010100101001010100001111L;
-        long openText = 0b0010100111100110100101010010011010010000010100101001010100001111L;
-        long openText = 0b0010100111100110100101010010111010010000110100101011010100001111L;
-         long openText = 0b0010100111100110100101010010111010010000110100101011010100001110L;
-         long openText = 0b0010100110100110100101010010111010010100110100100011010100001110L;
-         long openText = 0b0010100110100110100101010010111010010100110100100011010100001111L;
-         long openText = 0b0010100110100110100101010010111010010100110100100011010100000101L;
-         long openText = 0b1010100110100110110101010010111010010100100101100011010100000111L;
-        */
-
-
         long key =  0b0101010110001101010100111111111101010101010101010000111101101010L;
 
         int correct = 0;
         int incorrect =0;
-        for (long i = 0; i <99999; i++){
+        for (long i = 0; i <1000000; i++)
+        {
             long openText = i;
             Des des = new Des(openText, key);
             long encodeMessage = des.getEncodeMessage();
@@ -500,18 +486,12 @@ public class Des {
             long decodeMessage = des2.getDecodeMessage();
             if (openText == decodeMessage){
                 correct++;
-                System.out.println(Long.toBinaryString(openText));
             }else
                 incorrect++;
         }
         System.out.println("Корректно: " + Integer.toString(correct));
         System.out.println("Некорректно: " + Integer.toString(incorrect));
 
-    /*  System.out.println("Open text:        " + Long.toBinaryString(openText));
-        System.out.println("Decoding message: " + Long.toBinaryString(decodeMessage));
-        System.out.println("Key: " + Long.toBinaryString(key));
-        System.out.println();
-        System.out.println("Encoding message: " + Long.toBinaryString(encodeMessage));*/
 
 
 
